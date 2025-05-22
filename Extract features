@@ -1,0 +1,63 @@
+import csv
+import os.path
+
+import pandas as pd
+import numpy as np
+from tsfresh import extract_features, select_features
+from tsfresh.feature_extraction import ComprehensiveFCParameters
+from tsfresh.utilities.dataframe_functions import impute
+
+from sklearn.model_selection import StratifiedKFold, cross_val_score, cross_val_predict
+from sklearn import svm
+from sklearn.metrics import classification_report
+import matplotlib.pyplot as plt
+
+from draw_confusion_matrix import draw_confusion_matrix
+
+if __name__ == '__main__':
+ 
+    dataFilePath = "slide.csv"
+    labelFilePath = "slide.csv"
+    
+
+    data_csv = pd.read_csv(dataFilePath)
+    labels_df = pd.read_csv(labelFilePath)
+    
+    y_csv = pd.Series(
+        data=np.array(labels_df['label']).tolist(),
+        index=np.array(labels_df['id']).tolist()
+    )
+    
+    extraction_settings = ComprehensiveFCParameters()
+    X = extract_features(
+        data_csv,
+        column_id='id',
+        column_sort='time',
+        default_fc_parameters=extraction_settings,
+        impute_function=impute
+    )
+    
+    X_filtered = select_features(X, y_csv)
+    
+
+    y = y_csv.loc[X_filtered.index]
+    
+
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    clf = svm.SVC()
+    
+  
+    scores = cross_val_score(clf, X_filtered, y, cv=cv, scoring='accuracy')
+    print("accuracy：", scores)
+    print(f"average accuracy：{scores.mean():.4f}")
+    
+ 
+    y_pred = cross_val_predict(clf, X_filtered, y, cv=cv)
+    
+    print("\n=== report===")
+    print(classification_report(y, y_pred))
+    
+    
+    draw_confusion_matrix(y, y_pred)
+    plt.show()
+
